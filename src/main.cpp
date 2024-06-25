@@ -67,13 +67,18 @@ void setup() {
 }
 
 void loop() {
-  EthernetClient client = server.available();
-  if(client) {
-    timeout_count = 0;
+  if(Ethernet.linkStatus() != LinkON) {
+    timeout_count = std::numeric_limits<uint16_t>::max();
   }
   else {
-    if(std::numeric_limits<uint16_t>::max() != timeout_count) {
-      ++timeout_count;
+    EthernetClient client = server.available();
+    if(client) {
+      timeout_count = 0;
+    }
+    else {
+      if(std::numeric_limits<uint16_t>::max() != timeout_count) {
+        ++timeout_count;
+      }
     }
   }
 
