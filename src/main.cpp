@@ -8,10 +8,29 @@
 #define CS 26
 #define RELAY_PIN 32
 
-byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-IPAddress ip(192, 168, 0, 210);
+/// @sa https://ouxt-polaris.esa.io/posts/532
 
-EthernetServer server(8080);
+// If you want to configure as right motor, please comment in this line.
+#define RIGHT_MOTOR
+
+#ifdef RIGHT_MOTOR
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress ip(192, 168, 0, 200);
+const char * control_machine_ip = "192.168.0.100";
+const int port = 2000;
+#endif RIGHT_MOTOR
+
+// If you want to configure as left motor, please comment in this line.
+// #define LEFT_MOTOR
+
+#ifdef LEFT_MOTOR
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE};
+IPAddress ip(192, 168, 0, 210);
+const char * control_machine_ip = "192.168.0.100";
+const int port = 2000;
+#endif LEFT_MOTOR
+
+EthernetServer server(port);
 uint16_t timeout_count = 20; // When starting this program, relay should be OFF.
 bool connection_timeouted = true;
 
@@ -72,7 +91,11 @@ void loop() {
   }
   else {
     EthernetClient client = server.available();
-    if(client) {
+    const auto return_connection = [&]() {
+      EthernetClient return_connection_client;
+      return return_connection_client.connect(control_machine_ip, port);
+    };
+    if(client || return_connection()) {
       timeout_count = 0;
     }
     else {
