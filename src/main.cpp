@@ -16,7 +16,6 @@
 #ifdef RIGHT_MOTOR
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress ip(192, 168, 0, 200);
-IPAddress control_machine_ip(192, 168, 0, 190);
 const int port = 2000;
 #endif // RIGHT_MOTOR
 
@@ -26,12 +25,10 @@ const int port = 2000;
 #ifdef LEFT_MOTOR
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE};
 IPAddress ip(192, 168, 0, 210);
-IPAddress control_machine_ip(192, 168, 0, 100);
 const int port = 2000;
 #endif // LEFT_MOTOR
 
 EthernetServer server(port);
-EthernetClient return_connection_client;
 uint16_t timeout_count = 20; // When starting this program, relay should be OFF.
 bool connection_timeouted = true;
 
@@ -85,23 +82,21 @@ void setup() {
       delay(1); // do nothing, no point running without Ethernet hardware
     }
   }
-  return_connection_client.connect(control_machine_ip, port);
-  return_connection_client.setConnectionTimeout(2000);
-
   server.begin();
 }
 
 void loop() {
-  if(Ethernet.linkStatus() != LinkON) {
-    timeout_count = 20;
+  EthernetClient client = server.available();
+  if(client && Ethernet.linkStatus() == LinkON) {
+    client.write("ACK", 3);
+    timeout_count = 0;
   }
   else {
-    return_connection_client.flush();
-    if(return_connection_client.connected()) {
-      timeout_count = 0;
-    } else {
-      return_connection_client.connect(control_machine_ip, port);
+    if(timeout_count <= 20) {
       ++timeout_count;
+    }
+    else {
+      timeout_count = 20;
     }
   }
 
