@@ -16,9 +16,9 @@
 #ifdef RIGHT_MOTOR
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
 IPAddress ip(192, 168, 0, 200);
-const char * control_machine_ip = "192.168.0.100";
+IPAddress control_machine_ip(192, 168, 0, 190);
 const int port = 2000;
-#endif RIGHT_MOTOR
+#endif // RIGHT_MOTOR
 
 // If you want to configure as left motor, please comment in this line.
 // #define LEFT_MOTOR
@@ -26,11 +26,12 @@ const int port = 2000;
 #ifdef LEFT_MOTOR
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE};
 IPAddress ip(192, 168, 0, 210);
-const char * control_machine_ip = "192.168.0.100";
+IPAddress control_machine_ip(192, 168, 0, 100);
 const int port = 2000;
-#endif LEFT_MOTOR
+#endif // LEFT_MOTOR
 
 EthernetServer server(port);
+EthernetClient return_connection_client;
 uint16_t timeout_count = 20; // When starting this program, relay should be OFF.
 bool connection_timeouted = true;
 
@@ -72,7 +73,10 @@ void setup() {
   
   M5.Lcd.setCursor(0, 0);
   M5.Lcd.println("Battery Relay\n");
+  M5.Lcd.setCursor(0, 15);
   M5.Lcd.println(Ethernet.localIP());
+  // M5.Lcd.setCursor(180, 15);
+  // M5.Lcd.println(control_machine_ip);
   display_timeout();
 
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
@@ -81,27 +85,23 @@ void setup() {
       delay(1); // do nothing, no point running without Ethernet hardware
     }
   }
+  return_connection_client.connect(control_machine_ip, port);
+  return_connection_client.setConnectionTimeout(2000);
 
   server.begin();
 }
 
 void loop() {
   if(Ethernet.linkStatus() != LinkON) {
-    timeout_count = std::numeric_limits<uint16_t>::max();
+    timeout_count = 20;
   }
   else {
-    EthernetClient client = server.available();
-    const auto return_connection = [&]() {
-      EthernetClient return_connection_client;
-      return return_connection_client.connect(control_machine_ip, port);
-    };
-    if(client || return_connection()) {
+    return_connection_client.flush();
+    if(return_connection_client.connected()) {
       timeout_count = 0;
-    }
-    else {
-      if(std::numeric_limits<uint16_t>::max() != timeout_count) {
-        ++timeout_count;
-      }
+    } else {
+      return_connection_client.connect(control_machine_ip, port);
+      ++timeout_count;
     }
   }
 
