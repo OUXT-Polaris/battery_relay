@@ -31,6 +31,8 @@ const int port = 2000;
 EthernetServer server(port);
 uint16_t timeout_count = 20; // When starting this program, relay should be OFF.
 bool connection_timeouted = true;
+int loop_count_from_client = 0;
+int previous_loop_count_from_client = 0;
 
 void display_timeout() {
   M5.Lcd.fillRect(0, 30, 320, 210, RED);
@@ -88,7 +90,19 @@ void setup() {
 void loop() {
   EthernetClient client = server.available();
   if(client && Ethernet.linkStatus() == LinkON) {
-    client.write("ACK", 3);
+    uint8_t buf[4];
+    client.read(buf, 4);
+    memcpy(&loop_count_from_client, buf, 4);
+    if(previous_loop_count_from_client != loop_count_from_client) {
+      client.write("ACK", 3);
+    }
+    else {
+      if(timeout_count <= 20) {
+        ++timeout_count;
+      }
+      client.write("NOT", 3);
+    }
+    previous_loop_count_from_client = loop_count_from_client;
     timeout_count = 0;
   }
   else {
