@@ -13,6 +13,7 @@ client.connect((HOST,PORT))
 
 try:
     while True:
+        # print("Loop Count : " + str(loop_count))
         client.sendall(struct.pack('<i', loop_count))
 
         data = client.recv(BUFSIZE)

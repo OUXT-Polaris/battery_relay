@@ -33,6 +33,7 @@ uint16_t timeout_count = 20; // When starting this program, relay should be OFF.
 bool connection_timeouted = true;
 int loop_count_from_client = 0;
 int previous_loop_count_from_client = 0;
+int loop_count_in_m5_stack = 0;
 
 void display_timeout() {
   M5.Lcd.fillRect(0, 30, 320, 210, RED);
@@ -93,17 +94,15 @@ void loop() {
     uint8_t buf[4];
     client.read(buf, 4);
     memcpy(&loop_count_from_client, buf, 4);
-    if(previous_loop_count_from_client != loop_count_from_client) {
-      client.write("ACK", 3);
+
+    if(previous_loop_count_from_client == loop_count_from_client) {
+      ++timeout_count;
     }
     else {
-      if(timeout_count <= 20) {
-        ++timeout_count;
-      }
-      client.write("NOT", 3);
+      timeout_count = 0;
     }
+    client.write("ACK", 3);
     previous_loop_count_from_client = loop_count_from_client;
-    timeout_count = 0;
   }
   else {
     if(timeout_count <= 20) {
@@ -120,4 +119,5 @@ void loop() {
   digitalWrite(RELAY_PIN, [&](){ return is_timeout() ? LOW : HIGH; }());
   delay(100);
   connection_timeouted = is_timeout();
+  ++loop_count_in_m5_stack;
 }
