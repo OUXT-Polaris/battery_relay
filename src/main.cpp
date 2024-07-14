@@ -8,12 +8,32 @@
 #define CS 26
 #define RELAY_PIN 32
 
-byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-IPAddress ip(192, 168, 0, 210);
+/// @sa https://ouxt-polaris.esa.io/posts/532
 
-EthernetServer server(8080);
+// If you want to configure as right motor, please comment in this line.
+#define RIGHT_MOTOR
+
+#ifdef RIGHT_MOTOR
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+IPAddress ip(192, 168, 0, 200);
+const int port = 2000;
+#endif // RIGHT_MOTOR
+
+// If you want to configure as left motor, please comment in this line.
+// #define LEFT_MOTOR
+
+#ifdef LEFT_MOTOR
+byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEE};
+IPAddress ip(192, 168, 0, 210);
+const int port = 2000;
+#endif // LEFT_MOTOR
+
+EthernetServer server(port);
 uint16_t timeout_count = 20; // When starting this program, relay should be OFF.
 bool connection_timeouted = true;
+int loop_count_from_client = 0;
+int previous_loop_count_from_client = 0;
+int loop_count_in_m5_stack = 0;
 
 void display_timeout() {
   M5.Lcd.fillRect(0, 30, 320, 210, RED);
@@ -53,7 +73,10 @@ void setup() {
   
   M5.Lcd.setCursor(0, 0);
   M5.Lcd.println("Battery Relay\n");
+  M5.Lcd.setCursor(0, 15);
   M5.Lcd.println(Ethernet.localIP());
+  // M5.Lcd.setCursor(180, 15);
+  // M5.Lcd.println(control_machine_ip);
   display_timeout();
 
   if (Ethernet.hardwareStatus() == EthernetNoHardware) {
@@ -62,23 +85,31 @@ void setup() {
       delay(1); // do nothing, no point running without Ethernet hardware
     }
   }
-
   server.begin();
 }
 
 void loop() {
-  if(Ethernet.linkStatus() != LinkON) {
-    timeout_count = std::numeric_limits<uint16_t>::max();
-  }
-  else {
-    EthernetClient client = server.available();
-    if(client) {
-      timeout_count = 0;
+  EthernetClient client = server.available();
+  if(client && Ethernet.linkStatus() == LinkON) {
+    uint8_t buf[4];
+    client.read(buf, 4);
+    memcpy(&loop_count_from_client, buf, 4);
+
+    if(previous_loop_count_from_client == loop_count_from_client) {
+      ++timeout_count;
     }
     else {
-      if(std::numeric_limits<uint16_t>::max() != timeout_count) {
-        ++timeout_count;
-      }
+      timeout_count = 0;
+    }
+    client.write("ACK", 3);
+    previous_loop_count_from_client = loop_count_from_client;
+  }
+  else {
+    if(timeout_count <= 20) {
+      ++timeout_count;
+    }
+    else {
+      timeout_count = 20;
     }
   }
 
@@ -88,4 +119,5 @@ void loop() {
   digitalWrite(RELAY_PIN, [&](){ return is_timeout() ? LOW : HIGH; }());
   delay(100);
   connection_timeouted = is_timeout();
+  ++loop_count_in_m5_stack;
 }
